@@ -1,0 +1,8 @@
+Mon Apr 29 09:52:05 1996  Ulrich Pfeifer  <pfeifer@ls6.informatik.uni-dortmund.de>
+
+	* pconvert.PL: Now checks for gs devices
+
+Thu Apr 11 06:17:57 1996  Ulrich Pfeifer  <pfeifer@ls6.informatik.uni-dortmund.de>
+
+	* pconvert.PL: Initial revision
+

@@ -1,0 +1,182 @@
+PCONVERT(1)    User Contributed Perl Documentation    PCONVERT(1)
+
+NAME
+       pconvert - convert file formats
+
+SYNOPSIS
+       pconvert [-check] [-debug] [-gzip] [-option
+       program=options] [-nono] [-out filename] [-overwrite]
+       [-newer] [-remove] [-to type] [-verbose] [name ...]
+
+DESCRIPTION
+       Pconvert determines the type of the files named on the
+       command line and tries to convert them to a specified type
+       (defaults to PostScript). It uses internal rules to find a
+       set of commands which can do the task.
+
+       The file type is determined by file extensions. If the
+       extension in not known or the -check option is given, the
+       first bytes of the file are examined to infer a type.
+       Files with extensions .gz or .Z are assumed to be
+       compressed by gzip(1) or compress(1) respectively and
+       handled transparently.
+
+OPTIONS
+       All options may be abbreviated.Boolean options (all
+       options without arguments) may be negated by prefixing
+       them with no. For example use -nocheck to enable file
+       extension checking if your sysadmin had set the default to
+       -check. See the Getopts::Long manpage for details.
+
+       -check    Do not trust file extensions when determining
+                 the input file type.
+
+       -debug    Enables some debug output. Not very useful.
+
+       -gzip     Compress output with gzip.
+
+       -option program=options
+                 Pass options to the filter program program if
+                 used. This option may be repeated any number of
+                 times. The option parsing checks if program is a
+                 known filter. To learn about the valid filters,
+                 run pconvert without arguments.
+
+       -nono     Do nothing. Just print what would have been done
+                 without -nono.
+
+       -out filename
+                 Pconvert normally writes the output to a new
+                 file with the same base name as the input file
+                 and the type appended as extension. This can be
+                 overwritten with the -out option. If filename is
+                 '-', pconvert writes to STDOUT.
+
+       -overwrite, -newer
+                 Pconvert does not overwrite existing files
+
+11/Apr/96                     perl                              1
+
+                 unless -overwrite or -newer is given. -overwrite
+                 forces overwriting. -newer will overwrite only
+                 if source is newer.
+
+       -remove   If -remove is set, the original file is removed.
+
+       -to type  Use type as desired output type. You can get a
+                 list of valid output types when running pconvert
+                 without any arguments.
+
+       -verbose  Print commands before running them.
+
+EXAMPLES
+       Here are some examples. Do not be worried about the
+       absolute paths in the produced commands. Pconvert will
+       search for the filters on your system. It may find another
+       pipe, if some of the filters are missing on your system.
+
+       Converting image formats
+
+         % pconvert -nono -to tiff ~www/pages/icons/LS6.gif
+         chdir /home/robots/www/pages/icons/
+         /bin/cat LS6.gif|
+           /usr/local/image-tools/bin/giftopnm|
+           /usr/local/image-tools/bin/pnmtotiff>LS6.tiff
+
+       If giftopnm is missing, the following plan is generated:
+
+         % pconvert -nono -to tiff ~www/pages/icons/LS6.gif
+         chdir /home/robots/www/pages/icons/
+         /bin/cat LS6.gif|
+           /usr/local/image-tools/bin/cjpeg|
+           /usr/local/image-tools/bin/djpeg -pnm|
+           /usr/local/image-tools/bin/pnmtotiff>LS6.tiff
+
+       Generating images from postscript
+
+         % pconvert -nono -to gif pconvert.pod
+         /bin/cat pconvert.pod|
+           (/bin/cat > pconvert.$$;/usr/local/ls6/perl/bin/pod2man \
+                  pconvert.$$;/bin/rm pconvert.$$)|
+           /usr/local/groff-1.09/bin/groff -mandoc|
+           /usr/local/X11R5/bin/gs -q -sDEVICE=pbmraw -sOutputFile=- -|
+           /usr/local/image-tools/bin/ppmquant 256|
+           /usr/local/image-tools/bin/ppmtogif>pconvert.gif
+
+       Generating postscript manpages
+
+11/Apr/96                     perl                              2
+
+         % pconvert -nono pconvert.pod
+         /bin/cat pconvert.pod|
+           (/bin/cat > pconvert.$$;/usr/local/ls6/perl/bin/pod2man \
+                  pconvert.$$;/bin/rm pconvert.$$)|
+           /usr/local/groff-1.09/bin/groff -mandoc>pconvert.ps
+
+       Building a tar archive from a directory
+
+         % pconvert -nono -to TAR -gzip image
+         /bin/find image -depth  -xdev -type f -print|
+           /usr/local/ls6/unsupported/bin/sun4-sunos/gcpio -Htar -o|
+           /usr/local/bin/gzip -c>image.tar.gz
+
+       Building a tar archive from a MANIFEST file
+
+         % pconvert -nono -to TAR -gzip image/MANIFEST
+         /bin/cat image/MANIFEST|
+           /bin/awk '{printf "image/%s\n", $1}'|
+           /usr/local/ls6/unsupported/bin/sun4-sunos/gcpio -Htar -o|
+           /usr/local/bin/gzip -c>image.tar.gz
+
+ENVIRONMENT
+       PATH is used in addition to build-in paths to search for
+       programs.
+
+SEE ALSO
+       Getopts::Long(3), awk(1), cjpeg(1), compress(1), djpeg(1),
+       gcpio(1), giftopnm(1), gzip(1), pbmtopgm(1), perl(1),
+       pgmtopbm(1), pnmtops(1), pnmtotiff(1), ppmquant(1),
+       ppmtogif(1), tar(1), tifftopnm(1).
+
+EXTENSION
+       Extension should be pretty easy. Help safe the world:
+
+            Please mail your extension to the author.
+
+       New types
+
+       To add a new type, just append an entry to the %TYPE hash.
+       Each entry should be a reference to an array containing:
+
+            o the name of the type,
+
+            o a regular expression which matches the extension,
+            and
+
+            o optionally a regular expression which matches the
+            start of the file.
+
+       Here is the definition of the GIF type:
+
+11/Apr/96                     perl                              3
+
+           GIF  => ['\.gif',   '^GIF8[79]a'],
+
+       Add a conversion rule.
+
+       To add a new filter, just append a an array reference to
+       @RULE. The array should contain the from and to type an
+       the name of the filter program. Here are some examples:
+
+            [GIF             => PPM,  'giftopnm'],
+            [[PPM, PGM, PBM] => GIF,  ['ppmquant 256', 'ppmtogif']],
+            [POD             => MAN,
+                         '(cat > %O.$$; pod2man %O.$$; rm %O.$$;)'],
+
+       The %O is replaced by the target name (i.e. the name of
+       the output file).
+
+AUTHOR
+       Ulrich Pfeifer <pfeifer@ls6.informatik.uni-dortmund.de>
+
+11/Apr/96                     perl                              4
