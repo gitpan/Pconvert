@@ -68,7 +68,7 @@ sub gs_devices {
   @devices;
 }
 
-# We are only interested in this devices. 
+# We are only interested in these devices. 
 %DEVICE  = (
             PBM   => 'pbmraw',
             PGM   => 'pgmraw',
@@ -79,27 +79,45 @@ sub gs_devices {
             PCL   => 'ljet4',
            );
 
-print STDERR "Checking which devices your 'gs' supports\n";
+print STDERR "
+
+Checking which devices your 'gs' supports and if your cpio can write
+tar files ...
+
+";
 
 for $path (@PATH) {
   next if $SEEN{$path}++;
+  unless ($CPIO) {
+    for $cpio (qw(cpio gcpio)) {
+      if (-x "$path/$cpio") {
+        system("$path/$cpio < /dev/null -o -H tar > /dev/null 2>&1");
+        unless ($? >> 8) {
+          print STDERR "$path/$cpio handles '-H tar'\n";
+          $CPIO = "$path/$cpio";
+          last;
+        }
+      }
+    }
+  }
   for $gs (qw(gs gs_nox)) {
     if (-x "$path/$gs") {
       $OPTION{$gs} = '-sPAPERSIZE=a4';
       my @devices = gs_devices("$path/$gs");
       my %devices;
       @devices{@devices} = @devices;
-      print STDERR "$path/$gs: @devices\n";
+      #print STDERR "$path/$gs: @devices\n";
       for $type (sort {$DEVICE{$b} cmp $DEVICE{$a}} keys  %DEVICE) {
         $device = $DEVICE{$type};
         if ($devices{$device} and !$HAVE{$type}++) {
+          printf STDERR "Adding rule PS => %-6s  '$path/$gs ...'\n", $type.',';
           $GSRULES .= "     [PS              => $type,  '$path/$gs -q -sDEVICE=$device -sOutputFile=- -'],\n";
         }
       }
     }
   }
 }
-print STDERR "Adding rules:\n$GSRULES";
+#print STDERR "Adding rules:\n$GSRULES";
 print OUT <<"!GROK!THIS!";
 $Config{'startperl'}
 !GROK!THIS!
@@ -119,8 +137,12 @@ eval 'exec perl -S $0 "$@"'
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
 # 
-# $Locker:  $
+# $Locker: pfeifer $
 # $Log: pconvert.PL,v $
+# Revision 1.04  1996/06/13 13:44:42  pfeifer
+# Added badnes() to avoid quality loss when possible. Added check for
+# GNU cpio.
+#
 # Revision 1.03  1996/05/23 14:39:08  pfeifer
 # Fixed bug with unknown extensions.
 #
@@ -137,7 +159,7 @@ use File::Basename;
 use File::Path;
 use Config;
 
-$VERSION = substr(q$Revision: 1.03 $, 10);
+$VERSION = substr(q$Revision: 1.04 $, 10);
 
 # File-Type => [extension-regexp, head-regexp]
 %TYPE = (
@@ -155,6 +177,7 @@ $VERSION = substr(q$Revision: 1.03 $, 10);
          'G3'  => ['', '\x00014d9a8000'],
          INFO => ['\.info'],
          TEXI => ['\.texi(nfo)?$'], # '],
+         HTML => ['\.html', '<HTML>|<html>'],
         );
 
 $PS = [PS, EPS];
@@ -162,40 +185,48 @@ $PS = [PS, EPS];
 @RULE = 
     expand_rule 
     (
-     [TEXI            => INFO, 'makeinfo --output -'],
-     [GIF             => PPM,  'giftopnm'],
      ['G3'            => PBM,  'g3topbm'],
+     [DVI             => PS,   'dvips'],
+     [EL              => ELC,  '(cat > %O.$$; emacs -q -batch -f batch-byte-compile %O.$$; cat %O.$$c; rm %O.$$;)'],
+     [GIF             => PPM,  'giftopnm'],
+     [HTML            => LINK, '(cat > %O$$.html; GET -o links file:%O$$.html; rm %O$$.html;)'],
+     [HTML            => PS,   '(cat > %O$$.html; GET -o ps file:%O$$.html; rm %O$$.html;)'],
+     [JPG             => GIF,  'djpeg -gif'],
+     [JPG             => PPM,  'djpeg -pnm'],
+     [MAN             => DVI,  'groff -mandoc -Tdvi'],
+     [MAN             => PS,   'groff -mandoc'],
+     [MANIFEST        => LIST, q[awk '{printf "%O/%s\n", $1}']],
      [PBM             => 'G3', 'pbmtog3'],
-     [[PPM, PGM, PBM] => $PS,  'pnmtops'], 
-     [[PPM, PGM, PBM] => TIFF, 'pnmtotiff'], 
      [PBM             => PGM,  'pbmtopgm'],
      [PBM             => PGM,  'pbmtopgm'],
      [PGM             => PBM,  'pgmtopbm'],
-     [PPM             => TIFF, 'pnmtotiff'],
-     [TIFF            => PPM,  '(cat > %O.$$; tifftopnm %O.$$; rm %O.$$;)'],
-     [[PPM, PGM, PBM] => GIF,  ['ppmquant 256', 'ppmtogif']],
-     [[PPM, PGM, GIF] => JPG,  'cjpeg'],
-     [JPG             => GIF,  'djpeg -gif'],
-     [JPG             => PPM,  'djpeg -pnm'],
-     [DIR             => TAR,  'gcpio -Htar -o'],
-     [TAR             => DIR,  'tar xf -'],
-     [MAN             => PS,   'groff -mandoc'],
-     [MAN             => DVI,  'groff -mandoc -Tdvi'],
-     [DVI             => PS,   'dvips'],
-     [MANIFEST        => LIST, q[awk '{printf "%O/%s\n", $1}']],
-     [LIST            => TAR,  'gcpio -Htar -o'],
-     [TAR             => LIST, 'tar tf -'],
      [POD             => MAN,  '(cat > %O.$$; pod2man %O.$$; rm %O.$$;)'],
-     [EL              => ELC,  '(cat > %O.$$; emacs -q -batch -f batch-byte-compile %O.$$; cat %O.$$c; rm %O.$$;)'],
+     [PPM             => TIFF, 'pnmtotiff'],
+     [TAR             => DIR,  'tar xf -'],
+     [TAR             => LIST, 'tar tf -'],
+     [TEXI            => INFO, 'makeinfo --output -'],
+     [TIFF            => PPM,  '(cat > %O.$$; tifftopnm %O.$$; rm %O.$$;)'],
+     [[PPM, PGM, GIF] => JPG,  'cjpeg'],
+     [[PPM, PGM, PBM] => $PS,  'pnmtops'], 
+     [[PPM, PGM, PBM] => GIF,  ['ppmquant 256', 'ppmtogif']],
+     [[PPM, PGM, PBM] => TIFF, 'pnmtotiff'], 
+     [PPM             => PGM,  'ppmtopgm'],
+     [PGM             => PPM,  'pgmtoppm'],
+#    [PPM             => PBM,  ['ppmtopgm','pgmtopbm']],
 !NO!SUBS!
+
+if ($CPIO) {
+  print OUT "     [DIR             => TAR,  '$CPIO -Htar -o'],\n";
+  print OUT "     [LIST            => TAR,  '$CPIO -Htar -o'],\n" ;
+}
+
 
 print OUT $GSRULES, "\n);\n";
 print OUT "\@PATH = qw(\n";
      for (@PATH) {
        print OUT "\t$_\n";
      }     
-print OUT "\t);\n";
-
+print OUT "\n\t);\n";
 print OUT <<'!NO!SUBS!';
 @PATH = grep !$SEEN{$_}, (@PATH, split $ENV{'PATH'}); %SEEN=();
 %PROGRAM = ();
@@ -389,7 +420,18 @@ sub run_cmd {
     }
     1;
 }
-    
+
+sub badnes {
+  my @plan = @_;
+  my $plan = join '|', @plan;
+
+  if ($plan =~ /\b(gs|djpeg)\b/) {
+    return @plan + 5;           # avoid using gs/djpeg even if plan gets longer
+  } else {
+    return @plan
+  }
+}
+          
 sub plan {
     my $type   = uc shift;
     my $target = uc shift;
@@ -413,7 +455,7 @@ sub plan {
             next if $ignore{$to};       # had that already
             my @plan = plan($to, $target, %ignore);
             if (@plan) {
-                if (!@best_plan or $#plan < $#best_plan - 1) {
+                if (!@best_plan or badnes(@plan) < badnes(@best_plan) - 1) {
                     #print STDERR "plan: $from $target @best_plan => ";
                     @best_plan = (find_program($prg), @plan);
                     #print STDERR "@best_plan\n";
