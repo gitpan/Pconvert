@@ -137,8 +137,14 @@ eval 'exec perl -S $0 "$@"'
 # 
 # (C) Copyright 1996, Universität Dortmund, all rights reserved.
 # 
-# $Locker: pfeifer $
+# $Locker:  $
 # $Log: pconvert.PL,v $
+# Revision 1.06  1997/02/06 16:56:29  pfeifer
+# Added PDF
+#
+# Revision 1.05  1997/02/06 16:48:34  pfeifer
+# switched to CVS
+#
 # Revision 1.04  1996/06/13 13:44:42  pfeifer
 # Added badnes() to avoid quality loss when possible. Added check for
 # GNU cpio.
@@ -159,7 +165,7 @@ use File::Basename;
 use File::Path;
 use Config;
 
-$VERSION = substr(q$Revision: 1.04 $, 10);
+$VERSION = substr(q$Revision: 1.06 $, 10);
 
 # File-Type => [extension-regexp, head-regexp]
 %TYPE = (
@@ -178,6 +184,8 @@ $VERSION = substr(q$Revision: 1.04 $, 10);
          INFO => ['\.info'],
          TEXI => ['\.texi(nfo)?$'], # '],
          HTML => ['\.html', '<HTML>|<html>'],
+         BMP  => ['\.bmp', '^BM'],
+         PDF  => ['\.pdf', '%âãÏÓ']
         );
 
 $PS = [PS, EPS];
@@ -193,11 +201,13 @@ $PS = [PS, EPS];
      [HTML            => PS,   '(cat > %O$$.html; GET -o ps file:%O$$.html; rm %O$$.html;)'],
      [JPG             => GIF,  'djpeg -gif'],
      [JPG             => PPM,  'djpeg -pnm'],
+     [[PPM, GIF, PGM] => JPG,  'cjpeg'],
      [MAN             => DVI,  'groff -mandoc -Tdvi'],
      [MAN             => PS,   'groff -mandoc'],
      [MANIFEST        => LIST, q[awk '{printf "%O/%s\n", $1}']],
      [PBM             => 'G3', 'pbmtog3'],
      [PBM             => PGM,  'pbmtopgm'],
+     [BMP             => PPM,  'bmptoppm'],
      [PBM             => PGM,  'pbmtopgm'],
      [PGM             => PBM,  'pgmtopbm'],
      [POD             => MAN,  '(cat > %O.$$; pod2man %O.$$; rm %O.$$;)'],
@@ -212,6 +222,8 @@ $PS = [PS, EPS];
      [[PPM, PGM, PBM] => TIFF, 'pnmtotiff'], 
      [PPM             => PGM,  'ppmtopgm'],
      [PGM             => PPM,  'pgmtoppm'],
+     [PDF             => PS,   'pdftops'],
+     [PDF             => PS,   'acroread -toPostScript -level2'],
 #    [PPM             => PBM,  ['ppmtopgm','pgmtopbm']],
 !NO!SUBS!
 
@@ -475,9 +487,9 @@ sub initial_pipe {
     my $cat;
     my $ofile = $file;
 
-    if ($file =~ s/\.gz//) {
+    if ($file =~ s/\.gz$//) {
         $cat = find_program('gzip -cd %s', 1);
-    } elsif ($file =~ s/\.Z//) {
+    } elsif ($file =~ s/\.Z$//) {
         $cat = find_program('compress -cd %s', 1);
     } elsif (-d $file) {
         $cat = find_program('find %s -depth  -xdev -type f -print', 1);
