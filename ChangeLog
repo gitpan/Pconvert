@@ -1,3 +1,11 @@
+2002-05-22  Ulrich Pfeifer  <pfeifer@wait.de>
+
+	* pconvert.PL (plan): Fixed long standing bug.  If both plans
+	started with <gs> or <?jpeg> the new one was preferred even if it
+	was longer than the old.
+
+	* Makefile.PL: Removed MAN3PODS
+
 Mon Apr 29 09:52:05 1996  Ulrich Pfeifer  <pfeifer@ls6.informatik.uni-dortmund.de>
 
 	* pconvert.PL: Now checks for gs devices

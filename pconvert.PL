@@ -26,12 +26,7 @@ print "Extracting $file (with variable substitutions)\n";
 # could not be located. This only applies to 'pnmtops' currently
 
 @PATH = qw(/bin /usr/bin /usr/local/bin /usr/ucb
-           /usr/local/ls6/unsupported/bin
-           /usr/local/ls6/latex2html/bin
-           /usr/local/ghostscript-3.51/bin
-           /usr/local/ls6/texinfo-3.7/bin
-           /usr/openwin/bin /usr/local/X11R6/bin /usr/local/X11R5/bin 
-           /opt/local/image-tools-95a/bin /usr/local/image-tools/bin);
+           /usr/openwin/bin /usr/local/X11R6/bin);
 push @PATH, split /:/, $ENV{'PATH'};
 push @PATH, "/usr/local/ls6/unsupported/bin/$Cnfig{'archname'}";
 
@@ -70,13 +65,14 @@ sub gs_devices {
 
 # We are only interested in these devices. 
 %DEVICE  = (
-            PBM   => 'pbmraw',
-            PGM   => 'pgmraw',
-            PPM   => 'ppmraw',
-            'G3'  => 'faxg3',
-            'G4'  => 'faxg4',
-            'G32' => 'faxg32d',
-            PCL   => 'ljet4',
+            PDF      => 'pdfwrite',
+            PBM      => 'pbmraw',
+            PGM      => 'pgmraw',
+            PPM      => 'ppmraw',
+            'G3'     => 'faxg3',
+            'G4'     => 'faxg4',
+            'G32'    => 'faxg32d',
+            PCL      => 'ljet4',
            );
 
 print STDERR "
@@ -135,29 +131,7 @@ eval 'exec perl -S $0 "$@"'
 # Update Count    : 265
 # Status          : Unknown, Use with caution!
 # 
-# (C) Copyright 1996, Universität Dortmund, all rights reserved.
-# 
-# $Locker:  $
-# $Log: pconvert.PL,v $
-# Revision 1.06  1997/02/06 16:56:29  pfeifer
-# Added PDF
-#
-# Revision 1.05  1997/02/06 16:48:34  pfeifer
-# switched to CVS
-#
-# Revision 1.04  1996/06/13 13:44:42  pfeifer
-# Added badnes() to avoid quality loss when possible. Added check for
-# GNU cpio.
-#
-# Revision 1.03  1996/05/23 14:39:08  pfeifer
-# Fixed bug with unknown extensions.
-#
-# Revision 1.2  1996/04/29 09:52:05  pfeifer
-# Sicherung vor gs device test.
-#
-# Revision 1.1  1996/04/11 06:17:57  pfeifer
-# Initial revision
-#
+# (C) Copyright 1996-2002, Ulrich Pfeifer. all rights reserved.
 # 
 use Getopt::Long;
 use Cwd;
@@ -165,7 +139,7 @@ use File::Basename;
 use File::Path;
 use Config;
 
-$VERSION = substr(q$Revision: 1.06 $, 10);
+$VERSION = substr(q$Revision: 1.07 $, 10);
 
 # File-Type => [extension-regexp, head-regexp]
 %TYPE = (
@@ -211,6 +185,7 @@ $PS = [PS, EPS];
      [PBM             => PGM,  'pbmtopgm'],
      [PGM             => PBM,  'pgmtopbm'],
      [POD             => MAN,  '(cat > %O.$$; pod2man %O.$$; rm %O.$$;)'],
+     [POD             => PS,   '(cat > %O.$$; pod2ps -toc -o - %O.$$; rm %O.$$;)'],
      [PPM             => TIFF, 'pnmtotiff'],
      [TAR             => DIR,  'tar xf -'],
      [TAR             => LIST, 'tar tf -'],
@@ -467,7 +442,7 @@ sub plan {
             next if $ignore{$to};       # had that already
             my @plan = plan($to, $target, %ignore);
             if (@plan) {
-                if (!@best_plan or badnes(@plan) < badnes(@best_plan) - 1) {
+                if (!@best_plan or badnes($prg, @plan) < badnes(@best_plan)) {
                     #print STDERR "plan: $from $target @best_plan => ";
                     @best_plan = (find_program($prg), @plan);
                     #print STDERR "@best_plan\n";
