@@ -139,7 +139,7 @@ use File::Basename;
 use File::Path;
 use Config;
 
-$VERSION = substr(q$Revision: 1.07 $, 10);
+$VERSION = "1.08";
 
 # File-Type => [extension-regexp, head-regexp]
 %TYPE = (
